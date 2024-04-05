@@ -31,7 +31,7 @@ func main() {
 
 	cfg, err := config.LoadDefaultConfig(context.TODO(),
 		// just a placeholder because it needs to be defined
-		// should be using teh one from the endpoint regardless
+		// should be using the one from the endpoint regardless
 		config.WithRegion("us-east-1"),
 		config.WithEndpointResolver(aws.EndpointResolverFunc(
 			func(service, region string) (aws.Endpoint, error) {
@@ -60,7 +60,10 @@ func main() {
 
 		for _, item := range page.Contents {
 			wg.Add(1)
-			go checkAndRenewObjectLock(svc, *item.Key)
+			go func(svc *s3.Client, key string) {
+				defer wg.Done()
+				checkAndRenewObjectLock(svc, key)
+			}(svc, *item.Key)
 		}
 	}
 
@@ -68,8 +71,6 @@ func main() {
 }
 
 func checkAndRenewObjectLock(svc *s3.Client, object string) {
-	defer wg.Done()
-
 	retention, err := svc.GetObjectRetention(context.TODO(), &s3.GetObjectRetentionInput{
 		Bucket: bucket,
 		Key:    &object,
