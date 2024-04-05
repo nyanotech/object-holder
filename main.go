@@ -21,7 +21,7 @@ var bucket = flag.String("bucket", "", "bucket name")
 var accessKeyId = flag.String("access-key-id", "", "aws access key")
 var secretAccessKey = flag.String("secret-access-key", "", "aws secret key")
 
-var updateExpiresWithin = flag.Int("update-expires-within", 30*24*3600, "only update objects whose lock expires within this many seconds (default 30 days)")
+var updateExpiresWithin = flag.Int("update-expires-within", 0, "only update objects whose lock expires within this many seconds (default 0)")
 var lockFor = flag.Int("lock-for", 90*24*3600, "how many seconds to renew the object lock for (default 90 days)")
 
 var wg sync.WaitGroup
@@ -71,12 +71,22 @@ func main() {
 }
 
 func checkAndRenewObjectLock(svc *s3.Client, object string) {
-	retention, _ := svc.GetObjectRetention(context.TODO(), &s3.GetObjectRetentionInput{
-		Bucket: bucket,
-		Key:    &object,
-	})
+	updateHold := false
+	if *updateExpiresWithin == 0 {
+		updateHold = true
+	} else {
+		retention, _ := svc.GetObjectRetention(context.TODO(), &s3.GetObjectRetentionInput{
+			Bucket: bucket,
+			Key:    &object,
+		})
+		if retention == nil {
+			updateHold = true
+		} else if retention.Retention.RetainUntilDate.Before(time.Now().Add(time.Second * time.Duration(*updateExpiresWithin))) {
+			updateHold = true
+		}
+	}
 
-	if retention == nil || retention.Retention.RetainUntilDate.Before(time.Now().Add(time.Second * time.Duration(*updateExpiresWithin))) {
+	if updateHold {
 		log.Println("Renewing object lock for object", object)
 		_, err := svc.PutObjectRetention(context.TODO(), &s3.PutObjectRetentionInput{
 			Bucket: bucket,
