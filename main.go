@@ -43,7 +43,7 @@ func main() {
 		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(*accessKeyId, *secretAccessKey, "")),
 	)
 	if err != nil {
-		log.Fatal("Failed to create AWS config", err)
+		log.Fatalln("Failed to create AWS config", err)
 	}
 
 	svc := s3.NewFromConfig(cfg)
@@ -55,7 +55,7 @@ func main() {
 	for paginator.HasMorePages() {
 		page, err := paginator.NextPage(context.TODO())
 		if err != nil {
-			log.Fatal("Failed to list objects", err)
+			log.Fatalln("Failed to list objects", err)
 		}
 
 		for _, item := range page.Contents {
@@ -76,7 +76,7 @@ func checkAndRenewObjectLock(svc *s3.Client, object string) {
 		Key:    &object,
 	})
 	if err != nil {
-		log.Fatal("Failed to get retention for", object, err)
+		log.Fatalln("Failed to get retention for", object, err)
 	}
 
 	if retention.Retention.RetainUntilDate.Before(time.Now().Add(time.Second * time.Duration(*updateExpiresWithin))) {
@@ -90,7 +90,7 @@ func checkAndRenewObjectLock(svc *s3.Client, object string) {
 			},
 		})
 		if err != nil {
-			log.Fatal("Failed to update retention for", object, err)
+			log.Fatalln("Failed to update retention for", object, err)
 		}
 	}
 }
