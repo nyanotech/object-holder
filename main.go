@@ -71,15 +71,12 @@ func main() {
 }
 
 func checkAndRenewObjectLock(svc *s3.Client, object string) {
-	retention, err := svc.GetObjectRetention(context.TODO(), &s3.GetObjectRetentionInput{
+	retention, _ := svc.GetObjectRetention(context.TODO(), &s3.GetObjectRetentionInput{
 		Bucket: bucket,
 		Key:    &object,
 	})
-	if err != nil {
-		log.Fatalln("Failed to get retention for", object, err)
-	}
 
-	if retention.Retention.RetainUntilDate.Before(time.Now().Add(time.Second * time.Duration(*updateExpiresWithin))) {
+	if retention == nil || retention.Retention.RetainUntilDate.Before(time.Now().Add(time.Second * time.Duration(*updateExpiresWithin))) {
 		log.Println("Renewing object lock for object", object)
 		_, err := svc.PutObjectRetention(context.TODO(), &s3.PutObjectRetentionInput{
 			Bucket: bucket,
