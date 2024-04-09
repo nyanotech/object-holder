@@ -30,9 +30,10 @@ var threadCount = flag.Int("threads", 1024, "how many objects to operate on at a
 func main() {
 	flag.Parse()
 
-	cfg, err := config.LoadDefaultConfig(context.TODO(),
-		// just a placeholder because it needs to be defined
-		// should be using the one from the endpoint regardless
+	options := []func(*config.LoadOptions) error{}
+
+	options = append(options,
+		// TODO: figure out what to do with this
 		config.WithRegion("us-east-1"),
 		config.WithEndpointResolverWithOptions(aws.EndpointResolverWithOptionsFunc(
 			func(service, region string, options ...interface{}) (aws.Endpoint, error) {
@@ -41,7 +42,14 @@ func main() {
 				}, nil
 			},
 		)),
-		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(*accessKeyId, *secretAccessKey, "")),
+	)
+
+	if *accessKeyId != "" && *secretAccessKey != "" {
+		options = append(options, config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(*accessKeyId, *secretAccessKey, "")))
+	}
+
+	cfg, err := config.LoadDefaultConfig(context.TODO(),
+		options...,
 	)
 	if err != nil {
 		log.Fatalln("Failed to create AWS config", err)
