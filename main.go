@@ -16,6 +16,7 @@ import (
 
 var endpoint = flag.String("endpoint", "", "s3 endpoint")
 var bucket = flag.String("bucket", "", "bucket name")
+var prefix = flag.String("prefix", "", "only operate on objects starting with this prefix")
 
 // todo - default to other credentials providers
 var accessKeyId = flag.String("access-key-id", "", "aws access key")
@@ -50,6 +51,7 @@ func main() {
 
 	paginator := s3.NewListObjectsV2Paginator(svc, &s3.ListObjectsV2Input{
 		Bucket: bucket,
+		Prefix: prefix,
 	})
 
 	objectQueue := make(chan string)
