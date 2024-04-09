@@ -33,8 +33,8 @@ func main() {
 		// just a placeholder because it needs to be defined
 		// should be using the one from the endpoint regardless
 		config.WithRegion("us-east-1"),
-		config.WithEndpointResolver(aws.EndpointResolverFunc(
-			func(service, region string) (aws.Endpoint, error) {
+		config.WithEndpointResolverWithOptions(aws.EndpointResolverWithOptionsFunc(
+			func(service, region string, options ...interface{}) (aws.Endpoint, error) {
 				return aws.Endpoint{
 					URL: *endpoint,
 				}, nil
