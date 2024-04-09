@@ -15,12 +15,13 @@ import (
 )
 
 var endpoint = flag.String("endpoint", "", "s3 endpoint")
-var bucket = flag.String("bucket", "", "bucket name")
-var prefix = flag.String("prefix", "", "only operate on objects starting with this prefix")
+var region = flag.String("region", "us-east-1", "s3 region")
 
-// todo - default to other credentials providers
 var accessKeyId = flag.String("access-key-id", "", "aws access key")
 var secretAccessKey = flag.String("secret-access-key", "", "aws secret key")
+
+var bucket = flag.String("bucket", "", "bucket name")
+var prefix = flag.String("prefix", "", "only operate on objects starting with this prefix")
 
 var updateExpiresWithin = flag.Int("update-expires-within", 0, "only update objects whose lock expires within this many seconds (default 0)")
 var lockFor = flag.Int("lock-for", 90*24*3600, "how many seconds to renew the object lock for (default 90 days)")
@@ -32,25 +33,25 @@ func main() {
 
 	options := []func(*config.LoadOptions) error{}
 
-	options = append(options,
-		// TODO: figure out what to do with this
-		config.WithRegion("us-east-1"),
-		config.WithEndpointResolverWithOptions(aws.EndpointResolverWithOptionsFunc(
+	if *region != "" {
+		options = append(options, config.WithRegion(*region))
+	}
+
+	if *endpoint != "" {
+		options = append(options, config.WithEndpointResolverWithOptions(aws.EndpointResolverWithOptionsFunc(
 			func(service, region string, options ...interface{}) (aws.Endpoint, error) {
 				return aws.Endpoint{
 					URL: *endpoint,
 				}, nil
 			},
-		)),
-	)
+		)))
+	}
 
 	if *accessKeyId != "" && *secretAccessKey != "" {
 		options = append(options, config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(*accessKeyId, *secretAccessKey, "")))
 	}
 
-	cfg, err := config.LoadDefaultConfig(context.TODO(),
-		options...,
-	)
+	cfg, err := config.LoadDefaultConfig(context.TODO(), options...)
 	if err != nil {
 		log.Fatalln("Failed to create AWS config", err)
 	}
