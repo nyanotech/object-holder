@@ -28,11 +28,20 @@ var lockFor = flag.Int("lock-for", 90*24*3600, "how many seconds to renew the ob
 
 var threadCount = flag.Int("threads", 1024, "how many objects to operate on at a time")
 
+type objectLockOptions struct {
+	CheckExistingHold bool
+	UpdateExpiry      time.Time
+	LockExpiry        time.Time
+}
+
 func main() {
 	flag.Parse()
 
-	updateExpiry := time.Now().Add(time.Second * time.Duration(*updateExpiresWithin))
-	lockExpiry := time.Now().Add(time.Second * time.Duration(*lockFor))
+	objectLockArguments := objectLockOptions{
+		CheckExistingHold: *updateExpiresWithin != 0,
+		UpdateExpiry:      time.Now().Add(time.Second * time.Duration(*updateExpiresWithin)),
+		LockExpiry:        time.Now().Add(time.Second * time.Duration(*lockFor)),
+	}
 
 	options := []func(*config.LoadOptions) error{}
 
@@ -73,7 +82,7 @@ func main() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			queueWorker(svc, updateExpiry, lockExpiry, objectQueue)
+			queueWorker(svc, objectLockArguments, objectQueue)
 		}()
 	}
 
@@ -92,26 +101,24 @@ func main() {
 	wg.Wait()
 }
 
-func queueWorker(svc *s3.Client, updateExpiry, lockExpiry time.Time, inQueue chan string) {
+func queueWorker(svc *s3.Client, options objectLockOptions, inQueue chan string) {
 	for {
 		object, more := <-inQueue
 		if !more {
 			return
 		}
-		checkAndRenewObjectLock(svc, updateExpiry, lockExpiry, object)
+		checkAndRenewObjectLock(svc, options, object)
 	}
 }
 
-func checkAndRenewObjectLock(svc *s3.Client, updateExpiry, lockExpiry time.Time, object string) {
-	updateHold := false
-	if *updateExpiresWithin == 0 {
-		updateHold = true
-	} else {
+func checkAndRenewObjectLock(svc *s3.Client, options objectLockOptions, object string) {
+	updateHold := !options.CheckExistingHold
+	if !updateHold {
 		retention, _ := svc.GetObjectRetention(context.TODO(), &s3.GetObjectRetentionInput{
 			Bucket: bucket,
 			Key:    &object,
 		})
-		if retention == nil || retention.Retention.RetainUntilDate.Before(updateExpiry) {
+		if retention == nil || retention.Retention.RetainUntilDate.Before(options.UpdateExpiry) {
 			updateHold = true
 		}
 	}
@@ -124,7 +131,7 @@ func checkAndRenewObjectLock(svc *s3.Client, updateExpiry, lockExpiry time.Time,
 			Retention: &types.ObjectLockRetention{
 				// TODO: add flag for governance mode
 				Mode:            "COMPLIANCE",
-				RetainUntilDate: aws.Time(lockExpiry),
+				RetainUntilDate: aws.Time(options.LockExpiry),
 			},
 		})
 		if err != nil {
