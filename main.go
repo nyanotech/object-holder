@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -50,6 +51,10 @@ func main() {
 	}
 
 	if *endpoint != "" {
+		if !strings.HasPrefix(*endpoint, "http://") && !strings.HasPrefix(*endpoint, "https://") {
+			*endpoint = "https://" + *endpoint
+		}
+
 		options = append(options, config.WithEndpointResolverWithOptions(aws.EndpointResolverWithOptionsFunc(
 			func(service, region string, options ...interface{}) (aws.Endpoint, error) {
 				return aws.Endpoint{
