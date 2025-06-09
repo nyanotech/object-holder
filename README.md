@@ -15,6 +15,7 @@ object-holder
   --bucket <bucket name>
   [--prefix <prefix>]
   [--update-expires-within <seconds>]
+  [--lock-mode <governance|compliance>]
   --lock-for <seconds>
   [--threads <thread count>]
 ```
@@ -23,10 +24,14 @@ If you're using name-brand S3, you don't need to specify endpoint, just the regi
 
 The aws keys can be fed in via the cli flags, via the usual env variables (`AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`), via instance metadata, etc.
 
-`--bucket`, obviously, specifies the bucket you'd like to renew object locks in, and `--prefix` can be used to limit operation to only the objects with a name starting with a given prefix in the bucket.
+`--bucket`, obviously, specifies the bucket you'd like to renew object locks in
 
-`--lock-for` specifies how many seconds the newly-made locks should last, counting from time of program start.
+`--prefix` can be used to limit operation to only the objects with a name starting with a given prefix in the bucket.
 
 `--update-expires-within-seconds` can be used to limit operation to only objects whose existing lock expires within that many seconds. This might save you a bit depending on your s3 provider's API request pricing. For example, in name-brand S3, it costs about 10x more to set a lock than it does to check it, so this flag might save you a bit there. Meanwhile, in Backblaze B2, setting an object hold is free but checking an existing hold costs money, so there's no reason to do the extra check.
 
-Lastly, `--threads` specifies how many concurrent threads we should have getting/setting object holds (default 1024). Some s3-compatible providers' APIs seem to misbehave when sequentially updating object metadata at high speeds like this script does, so here's a handy knob to adjust the speed in case you need it.
+`--lock-mode` specifies the type of object lock to apply: `governance` or `compliance` (default: compliance). Governance mode allows users with specific permissions to remove or modify the lock, while compliance mode prevents anyone from removing the lock until the retention period expires.
+
+`--lock-for` specifies how many seconds the newly-made locks should last, counting from time of program start.
+
+`--threads` specifies how many concurrent threads we should have getting/setting object holds (default 1024). Some s3-compatible providers' APIs seem to misbehave when sequentially updating object metadata at high speeds like this script does, so here's a handy knob to adjust the speed in case you need it.

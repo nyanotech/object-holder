@@ -28,20 +28,33 @@ var updateExpiresWithin = flag.Int("update-expires-within", 0, "only update obje
 var lockFor = flag.Int("lock-for", 90*24*3600, "how many seconds to renew the object lock for (default 90 days)")
 
 var threadCount = flag.Int("threads", 1024, "how many objects to operate on at a time")
+var lockMode = flag.String("lock-mode", "compliance", "object lock mode (governance or compliance)")
 
 type objectLockOptions struct {
 	CheckExistingHold bool
 	UpdateExpiry      time.Time
 	LockExpiry        time.Time
+	Mode              types.ObjectLockRetentionMode
 }
 
 func main() {
 	flag.Parse()
 
+	var mode types.ObjectLockRetentionMode
+	switch strings.ToLower(*lockMode) {
+	case "governance":
+		mode = types.ObjectLockRetentionModeGovernance
+	case "compliance":
+		mode = types.ObjectLockRetentionModeCompliance
+	default:
+		log.Fatalln("Invalid lock mode. Must be 'governance' or 'compliance'")
+	}
+
 	objectLockArguments := objectLockOptions{
 		CheckExistingHold: *updateExpiresWithin != 0,
 		UpdateExpiry:      time.Now().Add(time.Second * time.Duration(*updateExpiresWithin)),
 		LockExpiry:        time.Now().Add(time.Second * time.Duration(*lockFor)),
+		Mode:              mode,
 	}
 
 	options := []func(*config.LoadOptions) error{}
@@ -134,8 +147,7 @@ func checkAndRenewObjectLock(svc *s3.Client, options objectLockOptions, object s
 			Bucket: bucket,
 			Key:    &object,
 			Retention: &types.ObjectLockRetention{
-				// TODO: add flag for governance mode
-				Mode:            "COMPLIANCE",
+				Mode:            options.Mode,
 				RetainUntilDate: aws.Time(options.LockExpiry),
 			},
 		})
